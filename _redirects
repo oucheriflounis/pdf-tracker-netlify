@@ -1,0 +1,6 @@
+# Redirections pour l'API
+/track    /.netlify/functions/track    200
+/api      /api.html                    200
+
+# Fallback pour SPA
+/*        /index.html                  200

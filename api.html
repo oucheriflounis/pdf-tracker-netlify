@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Tracker API</title>
+    <style>
+        body { 
+            font-family: 'Courier New', monospace; 
+            background: #1a1a1a; 
+            color: #00ff00; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { 
+            text-align: center; 
+            border-bottom: 2px solid #00ff00; 
+            padding-bottom: 20px; 
+            margin-bottom: 30px; 
+        }
+        .endpoint { 
+            background: #2a2a2a; 
+            border: 1px solid #00ff00; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 20px 0; 
+        }
+        .method { 
+            color: #ffff00; 
+            font-weight: bold; 
+        }
+        .url { 
+            color: #00ffff; 
+            background: #333; 
+            padding: 5px 10px; 
+            border-radius: 4px; 
+            font-family: monospace; 
+        }
+        .params { 
+            color: #ff9900; 
+        }
+        .response { 
+            background: #0a3d0a; 
+            border-left: 4px solid #00ff00; 
+            padding: 15px; 
+            margin: 10px 0; 
+            overflow-x: auto; 
+        }
+        .test-btn { 
+            background: #00ff00; 
+            color: #000; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            font-weight: bold; 
+        }
+        .test-btn:hover { background: #00cc00; }
+        #live-logs { 
+            background: #000; 
+            border: 1px solid #00ff00; 
+            padding: 15px; 
+            height: 300px; 
+            overflow-y: auto; 
+            font-size: 12px; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 PDF Tracker API Documentation</h1>
+            <p>Interface de programmation pour le tracking de PDFs</p>
+        </div>
+
+        <div class="endpoint">
+            <h2>📡 Endpoint Principal</h2>
+            <p><span class="method">GET/POST</span> <span class="url" id="api-url">/.netlify/functions/track</span></p>
+            
+            <h3>📋 Paramètres acceptés :</h3>
+            <div class="params">
+                <ul>
+                    <li><strong>doc</strong> - Nom du document PDF</li>
+                    <li><strong>type</strong> - Type d'événement (link, image, js, etc.)</li>
+                    <li><strong>zone</strong> - Zone cliquée dans le PDF</li>
+                    <li><strong>timestamp</strong> - Horodatage personnalisé</li>
+                    <li><strong>custom</strong> - Données personnalisées</li>
+                </ul>
+            </div>
+
+            <h3>📤 Exemple de réponse :</h3>
+            <div class="response">
+                <pre>{
+  "success": true,
+  "message": "Tracking enregistré avec succès",
+  "data": {
+    "timestamp": "2024-10-08T12:00:00.000Z",
+    "ip": "192.168.1.1",
+    "userAgent": "Mozilla/5.0...",
+    "referer": "direct",
+    "params": {
+      "doc": "test.pdf",
+      "type": "link"
+    }
+  }
+}</pre>
+            </div>
+
+            <button class="test-btn" onclick="testAPI()">🧪 Tester l'API</button>
+        </div>
+
+        <div class="endpoint">
+            <h2>📊 URLs de Test</h2>
+            <div id="test-urls">
+                <!-- Généré dynamiquement -->
+            </div>
+        </div>
+
+        <div class="endpoint">
+            <h2>📺 Logs en Temps Réel</h2>
+            <button class="test-btn" onclick="toggleLiveLogs()">▶️ Démarrer les logs</button>
+            <div id="live-logs"></div>
+        </div>
+
+        <p style="text-align: center; margin-top: 40px;">
+            <a href="/" style="color: #00ff00;">← Retour au Dashboard</a>
+        </p>
+    </div>
+
+    <script>
+        // Configuration dynamique
+        const SITE_URL = window.location.origin;
+        document.getElementById('api-url').textContent = `${SITE_URL}/.netlify/functions/track`;
+
+        // Générer les URLs de test
+        function generateTestUrls() {
+            const baseUrl = `${SITE_URL}/.netlify/functions/track`;
+            const testUrls = [
+                `${baseUrl}?doc=test.pdf&type=link&zone=header`,
+                `${baseUrl}?doc=rapport.pdf&type=image&pixel=1`,
+                `${baseUrl}?doc=confidentiel.pdf&type=js&method=xhr`,
+                `${baseUrl}?doc=analyse.pdf&type=page_view&timestamp=${Date.now()}`
+            ];
+
+            const container = document.getElementById('test-urls');
+            container.innerHTML = testUrls.map((url, i) => `
+                <div style="margin: 10px 0;">
+                    <strong>Test ${i + 1}:</strong><br>
+                    <span class="url">${url}</span>
+                    <button class="test-btn" onclick="window.open('${url}', '_blank')" style="margin-left: 10px;">
+                        🚀 Tester
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Tester l'API
+        async function testAPI() {
+            const testUrl = `${SITE_URL}/.netlify/functions/track?doc=api-test.pdf&type=manual&source=dashboard&timestamp=${Date.now()}`;
+            
+            try {
+                const response = await fetch(testUrl);
+                const data = await response.json();
+                
+                alert(`✅ Test réussi !\n\nRéponse: ${JSON.stringify(data, null, 2)}`);
+                console.log('Test API réussi:', data);
+            } catch (error) {
+                alert(`❌ Erreur lors du test: ${error.message}`);
+                console.error('Erreur test API:', error);
+            }
+        }
+
+        // Logs en temps réel
+        let liveLogsActive = false;
+        let logsInterval;
+
+        function toggleLiveLogs() {
+            const btn = event.target;
+            const logsDiv = document.getElementById('live-logs');
+
+            if (!liveLogsActive) {
+                liveLogsActive = true;
+                btn.textContent = '⏸️ Arrêter les logs';
+                btn.style.background = '#ff9900';
+                
+                logsDiv.innerHTML = '<div style="color: #00ff00;">📡 Écoute des logs en cours...</div>';
+                
+                // Simuler des logs en temps réel (dans un vrai projet, utilisez WebSockets ou SSE)
+                logsInterval = setInterval(checkForNewLogs, 2000);
+            } else {
+                liveLogsActive = false;
+                btn.textContent = '▶️ Démarrer les logs';
+                btn.style.background = '#00ff00';
+                clearInterval(logsInterval);
+                logsDiv.innerHTML = '<div style="color: #666;">Logs arrêtés</div>';
+            }
+        }
+
+        function checkForNewLogs() {
+            // Dans un vrai projet, vous feriez un appel API pour récupérer les nouveaux logs
+            const logsDiv = document.getElementById('live-logs');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            // Exemple de log simulé
+            if (Math.random() > 0.7) {
+                const logEntry = `<div style="color: #00ff00;">[${timestamp}] 📊 Nouvelle requête détectée - IP: 192.168.1.${Math.floor(Math.random() * 255)} - Doc: exemple_${Math.floor(Math.random() * 100)}.pdf</div>`;
+                logsDiv.innerHTML = logEntry + logsDiv.innerHTML;
+                
+                // Limiter à 50 lignes
+                const lines = logsDiv.children;
+                if (lines.length > 50) {
+                    logsDiv.removeChild(lines[lines.length - 1]);
+                }
+            }
+        }
+
+        // Initialisation
+        generateTestUrls();
+    </script>
+</body>
+</html>
