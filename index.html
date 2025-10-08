@@ -60,7 +60,7 @@
             background: rgba(0,0,0,0.2); 
             border-radius: 10px; 
             padding: 20px; 
-            max-height: 400px; 
+            max-height: 500px; 
             overflow-y: auto; 
         }
         .log-entry { 
@@ -69,15 +69,17 @@
             padding: 15px; 
             border-radius: 8px; 
             border-left: 4px solid #4CAF50;
+            font-size: 14px;
         }
         .log-time { 
             font-weight: bold; 
             color: #4CAF50; 
+            margin-bottom: 5px;
         }
         .log-details { 
-            margin-top: 5px; 
-            font-size: 0.9em; 
+            font-size: 12px; 
             opacity: 0.8; 
+            line-height: 1.4;
         }
         .url-box { 
             background: rgba(0,0,0,0.3); 
@@ -86,27 +88,36 @@
             margin: 20px 0; 
             font-family: monospace; 
         }
-        .copy-btn { 
+        .copy-btn, .refresh-btn { 
             background: #4CAF50; 
             color: white; 
             border: none; 
-            padding: 8px 15px; 
+            padding: 10px 20px; 
             border-radius: 5px; 
             cursor: pointer; 
-            margin-left: 10px; 
+            margin: 5px;
+            font-size: 14px;
         }
-        .copy-btn:hover { background: #45a049; }
-        #refresh-btn { 
+        .copy-btn:hover, .refresh-btn:hover { background: #45a049; }
+        .test-btn { 
             background: #2196F3; 
             color: white; 
             border: none; 
-            padding: 12px 24px; 
-            border-radius: 8px; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
             cursor: pointer; 
-            font-size: 16px; 
-            margin-bottom: 20px; 
+            margin: 5px;
         }
-        #refresh-btn:hover { background: #1976D2; }
+        .test-btn:hover { background: #1976D2; }
+        .status { 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin: 10px 0; 
+            text-align: center; 
+        }
+        .status.success { background: rgba(76, 175, 80, 0.3); }
+        .status.error { background: rgba(244, 67, 54, 0.3); }
+        .status.info { background: rgba(33, 150, 243, 0.3); }
     </style>
 </head>
 <body>
@@ -117,6 +128,8 @@
         </div>
 
         <div class="dashboard">
+            <div id="status-messages"></div>
+
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-number" id="total-requests">0</div>
@@ -137,19 +150,23 @@
             </div>
 
             <div class="url-box">
-                <strong>🔗 URL de Tracking à utiliser dans vos PDFs :</strong><br>
-                <code id="tracking-url">https://VOTRE-SITE.netlify.app/track</code>
+                <strong>🔗 URL de Tracking :</strong><br>
+                <code id="tracking-url">https://pdf-tracker-netlify.netlify.app/track</code>
                 <button class="copy-btn" onclick="copyTrackingUrl()">📋 Copier</button>
             </div>
 
-            <button id="refresh-btn" onclick="loadLogs()">🔄 Actualiser les Logs</button>
+            <div style="text-align: center; margin: 20px 0;">
+                <button class="refresh-btn" onclick="loadLogs()">🔄 Actualiser</button>
+                <button class="test-btn" onclick="testEndpoint()">🧪 Tester l'Endpoint</button>
+                <button class="test-btn" onclick="clearLogs()">🗑️ Effacer les Logs</button>
+            </div>
 
             <div class="logs">
                 <h3>📊 Logs en Temps Réel</h3>
                 <div id="logs-container">
                     <div class="log-entry">
-                        <div class="log-time">En attente de requêtes...</div>
-                        <div class="log-details">Les requêtes de tracking apparaîtront ici</div>
+                        <div class="log-time">⏳ En attente de requêtes...</div>
+                        <div class="log-details">Les requêtes de tracking apparaîtront ici automatiquement</div>
                     </div>
                 </div>
             </div>
@@ -163,21 +180,40 @@
 
         // Variables globales
         let allLogs = [];
+        let isPolling = false;
 
-        // Fonction pour copier l'URL
+        // Fonction pour afficher un message de status
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status-messages');
+            const statusElement = document.createElement('div');
+            statusElement.className = `status ${type}`;
+            statusElement.innerHTML = message;
+            statusDiv.appendChild(statusElement);
+            
+            // Supprimer après 5 secondes
+            setTimeout(() => {
+                if (statusElement.parentNode) {
+                    statusElement.parentNode.removeChild(statusElement);
+                }
+            }, 5000);
+        }
+
+        // Copier l'URL de tracking
         function copyTrackingUrl() {
             const url = document.getElementById('tracking-url').textContent;
             navigator.clipboard.writeText(url).then(() => {
-                alert('URL copiée dans le presse-papiers !');
+                showStatus('✅ URL copiée dans le presse-papiers !', 'success');
             });
         }
 
-        // Charger les logs depuis le localStorage
+        // Charger les logs depuis localStorage
         function loadLogs() {
+            console.log('🔄 Chargement des logs...');
             const logs = JSON.parse(localStorage.getItem('pdf-tracking-logs') || '[]');
             allLogs = logs;
             displayLogs();
             updateStats();
+            showStatus(`📊 ${logs.length} logs chargés`, 'info');
         }
 
         // Afficher les logs
@@ -187,8 +223,12 @@
             if (allLogs.length === 0) {
                 container.innerHTML = `
                     <div class="log-entry">
-                        <div class="log-time">Aucune requête reçue</div>
-                        <div class="log-details">Ouvrez un PDF avec tracking pour voir les logs apparaître</div>
+                        <div class="log-time">📭 Aucune requête reçue</div>
+                        <div class="log-details">
+                            • Ouvrez un PDF avec tracking pour voir les logs<br>
+                            • Vérifiez que vous autorisez les requêtes dans votre lecteur PDF<br>
+                            • Testez l'endpoint avec le bouton "Tester l'Endpoint"
+                        </div>
                     </div>
                 `;
                 return;
@@ -197,20 +237,26 @@
             // Trier par date (plus récent en premier)
             const sortedLogs = [...allLogs].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
-            container.innerHTML = sortedLogs.slice(0, 50).map(log => `
-                <div class="log-entry">
-                    <div class="log-time">
-                        📅 ${new Date(log.timestamp).toLocaleString('fr-FR')}
+            container.innerHTML = sortedLogs.slice(0, 100).map((log, index) => {
+                const date = new Date(log.timestamp);
+                const timeStr = date.toLocaleString('fr-FR');
+                
+                return `
+                    <div class="log-entry">
+                        <div class="log-time">
+                            📅 ${timeStr} (#${sortedLogs.length - index})
+                        </div>
+                        <div class="log-details">
+                            <strong>📄 Document:</strong> ${log.doc || log.params?.doc || 'Non spécifié'}<br>
+                            <strong>🔗 Type:</strong> ${log.type || log.params?.type || 'unknown'}<br>
+                            <strong>📍 IP:</strong> ${log.ip || 'Non disponible'}<br>
+                            <strong>🌐 User-Agent:</strong> ${(log.userAgent || 'Non spécifié').substring(0, 80)}...<br>
+                            <strong>🔧 Méthode:</strong> ${log.method || 'GET'}<br>
+                            <strong>⚙️ Paramètres:</strong> ${JSON.stringify(log.params || {}, null, 2).substring(0, 200)}...
+                        </div>
                     </div>
-                    <div class="log-details">
-                        <strong>📄 Document:</strong> ${log.doc || 'Non spécifié'}<br>
-                        <strong>🔗 Type:</strong> ${log.type || 'link'}<br>
-                        <strong>🌐 User-Agent:</strong> ${log.userAgent ? log.userAgent.substring(0, 80) + '...' : 'Non spécifié'}<br>
-                        <strong>📍 IP:</strong> ${log.ip || 'Non disponible'}<br>
-                        <strong>⚙️ Paramètres:</strong> ${JSON.stringify(log.params || {}).substring(0, 100)}...
-                    </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         // Mettre à jour les statistiques
@@ -221,7 +267,7 @@
 
             document.getElementById('total-requests').textContent = allLogs.length;
             
-            const uniqueDocs = new Set(allLogs.map(log => log.doc)).size;
+            const uniqueDocs = new Set(allLogs.map(log => log.doc || log.params?.doc || 'unknown')).size;
             document.getElementById('unique-docs').textContent = uniqueDocs;
             
             const todayLogs = allLogs.filter(log => new Date(log.timestamp).toDateString() === today);
@@ -231,25 +277,94 @@
             document.getElementById('last-hour').textContent = recentLogs.length;
         }
 
-        // Fonction pour ajouter un nouveau log
+        // Ajouter un nouveau log
         function addLog(logData) {
+            console.log('📝 Nouveau log ajouté:', logData);
             allLogs.push(logData);
+            
+            // Limiter à 1000 logs maximum
+            if (allLogs.length > 1000) {
+                allLogs = allLogs.slice(-1000);
+            }
+            
             localStorage.setItem('pdf-tracking-logs', JSON.stringify(allLogs));
-            loadLogs();
+            displayLogs();
+            updateStats();
+            showStatus('🆕 Nouvelle requête de tracking reçue !', 'success');
         }
 
-        // Écouter les messages du service worker ou des iframes
+        // Tester l'endpoint
+        async function testEndpoint() {
+            const testUrl = `${SITE_URL}/track?doc=dashboard_test&type=manual_test&timestamp=${Date.now()}&source=dashboard`;
+            
+            try {
+                showStatus('🧪 Test de l\'endpoint en cours...', 'info');
+                const response = await fetch(testUrl);
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLog(data.data);
+                    showStatus('✅ Test réussi ! Endpoint fonctionnel.', 'success');
+                } else {
+                    showStatus('⚠️ Test partiellement réussi mais données incomplètes', 'error');
+                }
+            } catch (error) {
+                showStatus(`❌ Erreur lors du test: ${error.message}`, 'error');
+                console.error('Erreur test endpoint:', error);
+            }
+        }
+
+        // Effacer les logs
+        function clearLogs() {
+            if (confirm('Êtes-vous sûr de vouloir effacer tous les logs ?')) {
+                allLogs = [];
+                localStorage.removeItem('pdf-tracking-logs');
+                displayLogs();
+                updateStats();
+                showStatus('🗑️ Tous les logs ont été effacés', 'info');
+            }
+        }
+
+        // Polling pour récupérer les nouvelles données
+        function startPolling() {
+            if (isPolling) return;
+            
+            isPolling = true;
+            console.log('🔄 Démarrage du polling...');
+            
+            // Vérifier les nouveaux logs toutes les 5 secondes
+            setInterval(() => {
+                loadLogs();
+            }, 5000);
+        }
+
+        // Écouter les messages des autres onglets/fenêtres
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'pdf-tracking-logs') {
+                console.log('📡 Logs mis à jour dans un autre onglet');
+                loadLogs();
+            }
+        });
+
+        // Écouter les messages des popups/iframes
         window.addEventListener('message', function(event) {
-            if (event.data.type === 'pdf-tracking') {
+            if (event.data && event.data.type === 'pdf-tracking') {
+                console.log('📨 Message de tracking reçu:', event.data);
                 addLog(event.data.data);
             }
         });
 
-        // Charger les logs au démarrage
+        // Initialisation
+        console.log('🚀 Initialisation du dashboard...');
         loadLogs();
+        startPolling();
 
-        // Auto-refresh toutes les 30 secondes
-        setInterval(loadLogs, 30000);
+        // Afficher les instructions au démarrage
+        setTimeout(() => {
+            if (allLogs.length === 0) {
+                showStatus('💡 Astuce: Ouvrez un PDF avec tracking et cliquez sur les liens pour voir les logs apparaître', 'info');
+            }
+        }, 2000);
     </script>
 </body>
 </html>
